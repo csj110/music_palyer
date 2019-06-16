@@ -28,12 +28,13 @@ class MyHomePage extends StatefulWidget {
 }
 
 class _MyHomePageState extends State<MyHomePage> {
-
   @override
   Widget build(BuildContext context) {
-    return Audio(
-      audioUrl: demoPlaylist.songs[0].audioUrl,
-      playbackState: PlaybackState.paused,
+    return AudioPlaylist(
+      playlist: demoPlaylist.songs.map((DemoSong song) {
+        return song.audioUrl;
+      }).toList(growable: false),
+      playbackState: PlaybackState.playing,
       child: Scaffold(
           appBar: AppBar(
               backgroundColor: Colors.transparent,
@@ -59,12 +60,33 @@ class _MyHomePageState extends State<MyHomePage> {
             children: <Widget>[
               //seek bar
               Expanded(
-                child: AudioRadialSeekBar(),
+                child: AudioPlaylistComponent(
+                  playlistBuilder:
+                      (BuildContext context, Playlist playlist, Widget child) {
+                    final String albumArtUrl =
+                        demoPlaylist.songs[playlist.activeIndex].albumArtUrl;
+                    return AudioRadialSeekBar(
+                      albumArtUrl: albumArtUrl,
+                    );
+                  },
+                ),
               ),
               // visualizer
               Container(
                 width: double.infinity,
                 height: 125.0,
+                child: Visualizer(
+                  builder: (BuildContext context, List<int> fft) {
+                    return CustomPaint(
+                      painter: VisuallizerPainter(
+                        fft: fft,
+                        height: 125.0,
+                        color: accentColor,
+                      ),
+                      child: Container(),
+                    );
+                  },
+                ),
               ),
               // title  artist name and controls
               new ButtonControls()
@@ -74,7 +96,32 @@ class _MyHomePageState extends State<MyHomePage> {
   }
 }
 
+class VisuallizerPainter extends CustomPainter {
+  final List<int> fft;
+  final double height;
+  final Color color;
+  final Paint wavePaint;
+  VisuallizerPainter({this.fft, this.color, this.height})
+      : wavePaint = Paint()
+          ..color = color.withOpacity(0.6)
+          ..style = PaintingStyle.fill;
+  @override
+  void paint(Canvas canvas, Size size) {
+    canvas.drawRect(
+        Rect.fromLTWH(0.0, 0.0, size.width, size.height), wavePaint);
+  }
+
+  @override
+  bool shouldRepaint(CustomPainter oldDelegate) {
+    return true;
+  }
+}
+
 class AudioRadialSeekBar extends StatefulWidget {
+  final String albumArtUrl;
+  AudioRadialSeekBar({
+    this.albumArtUrl,
+  });
   @override
   _AudioRadialSeekBarState createState() => _AudioRadialSeekBarState();
 }
@@ -84,30 +131,35 @@ class _AudioRadialSeekBarState extends State<AudioRadialSeekBar> {
   @override
   Widget build(BuildContext context) {
     return AudioComponent(
-                  updateMe: [
-                    WatchableAudioProperties.audioPlayhead,
-                    WatchableAudioProperties.audioSeeking,
-                  ],
-                  playerBuilder:
-                      (BuildContext context, AudioPlayer player, Widget child) {
-                    double playbackProgress = 0.0;
-                    if (player.audioLength != null && player.position != null) {
-                      playbackProgress = player.position.inMilliseconds /
-                          player.audioLength.inMilliseconds;
-                    }
-                    _seekPercent=player.isSeeking ? _seekPercent: null;
-                    return RadialBar(
-                        progress: playbackProgress,
-                        seekPercent: _seekPercent,
-                        onSeekRequest: (double seekPercent) {
-                          setState(() => _seekPercent = seekPercent);
-                          final seekMillis =
-                              (player.audioLength.inMilliseconds * seekPercent)
-                                  .round();
-                          player.seek(Duration(milliseconds: seekMillis));
-                        });
-                  },
-                );
+      updateMe: [
+        WatchableAudioProperties.audioPlayhead,
+        WatchableAudioProperties.audioSeeking,
+      ],
+      playerBuilder: (BuildContext context, AudioPlayer player, Widget child) {
+        double playbackProgress = 0.0;
+        if (player.audioLength != null && player.position != null) {
+          playbackProgress = player.position.inMilliseconds /
+              player.audioLength.inMilliseconds;
+        }
+        _seekPercent = player.isSeeking ? _seekPercent : null;
+        return RadialBar(
+            progress: playbackProgress,
+            seekPercent: _seekPercent,
+            onSeekRequest: (double seekPercent) {
+              setState(() => _seekPercent = seekPercent);
+              final seekMillis =
+                  (player.audioLength.inMilliseconds * seekPercent).round();
+              player.seek(Duration(milliseconds: seekMillis));
+            },
+            child: Container(
+              color: accentColor,
+              child: Image.network(
+                widget.albumArtUrl,
+                fit: BoxFit.cover,
+              ),
+            ));
+      },
+    );
   }
 }
 
@@ -115,7 +167,9 @@ class RadialBar extends StatefulWidget {
   final double progress;
   final seekPercent;
   final Function(double) onSeekRequest;
-  RadialBar({this.seekPercent = 0.2, this.progress, this.onSeekRequest});
+  final Widget child;
+  RadialBar(
+      {this.seekPercent = 0.2, this.progress, this.onSeekRequest, this.child});
   @override
   _RadialBarState createState() => _RadialBarState();
 }
@@ -179,8 +233,8 @@ class _RadialBarState extends State<RadialBar> {
         color: Colors.transparent,
         child: Center(
             child: Container(
-          width: 140.0,
-          height: 140.0,
+          width: 220.0,
+          height: 220.0,
           child: RadialSeekBar(
             progressPercent: _progress,
             thumbPosition: thumbPosition,
@@ -190,10 +244,7 @@ class _RadialBarState extends State<RadialBar> {
             trackColor: Color(0xffdddddd),
             child: ClipOval(
               clipper: CircleClipper(),
-              child: Image.network(
-                demoPlaylist.songs[0].albumArtUrl,
-                fit: BoxFit.cover,
-              ),
+              child: widget.child,
             ),
           ),
         )),
