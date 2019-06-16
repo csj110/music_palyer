@@ -15,6 +15,7 @@ class ButtonControls extends StatelessWidget {
       width: double.infinity,
       child: Material(
         shadowColor: Color(0x44000000),
+        elevation:0.0,
         color: accentColor,
         child: Padding(
           padding: const EdgeInsets.only(top: 20.0, bottom: 40.0),

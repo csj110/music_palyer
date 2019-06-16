@@ -103,12 +103,89 @@ class VisuallizerPainter extends CustomPainter {
   final Paint wavePaint;
   VisuallizerPainter({this.fft, this.color, this.height})
       : wavePaint = Paint()
-          ..color = color.withOpacity(0.6)
+          ..color = color.withOpacity(0.8)
           ..style = PaintingStyle.fill;
   @override
   void paint(Canvas canvas, Size size) {
-    canvas.drawRect(
-        Rect.fromLTWH(0.0, 0.0, size.width, size.height), wavePaint);
+    _renderWaves(canvas, size);
+  }
+
+  void _renderWaves(Canvas canvas, Size size) {
+    final histogramLow =
+        _createHistogram(fft, 8, 2, ((fft.length) / 4).floor());
+    final histogramHigh = _createHistogram(
+        fft, 5, ((fft.length) / 4).ceil(), ((fft.length) / 2).floor());
+    _renderHistogram(canvas, size, histogramLow);
+    _renderHistogram(canvas, size, histogramHigh);
+  }
+
+  void _renderHistogram(Canvas canvas, Size size, List<int> histogram,) {
+    if (histogram.length == 0) {
+      return;
+    }
+
+    final pointsToGraph = histogram.length;
+    final widthPerSample = (size.width / (pointsToGraph - 1)).round();
+    final points = new List<double>.filled(pointsToGraph * 4, 0.0);
+    for (int i = 0; i < histogram.length - 1; ++i) {
+      points[i * 4] = (i * widthPerSample).toDouble();
+      points[i * 4 + 1] = size.height - histogram[i].toDouble() - 10.0;
+      points[i * 4 + 2] = ((i + 1) * widthPerSample).toDouble();
+      points[i * 4 + 3] = size.height - histogram[i + 1].toDouble() - 10.0;
+    }
+    Path path = Path();
+    path.moveTo(0.0, size.height);
+    path.lineTo(points[0], points[1]);
+    for (int i = 2; i < points.length - 2; i += 4) {
+      path.cubicTo(
+        points[i - 2] + widthPerSample * 0.4,
+        points[i - 1],
+        points[i] - widthPerSample * 0.4,
+        points[i + 1],
+        points[i],
+        points[i + 1],
+      );
+    }
+
+    path.lineTo(size.width, size.height);
+    path.close();
+
+    canvas.drawPath(path, wavePaint);
+
+  }
+
+  List<int> _createHistogram(List<int> samples, int bucketCount,
+      [int start, int end]) {
+    if (start == end) {
+      return [];
+    }
+    start = start ?? 0;
+    end = end ?? samples.length - 1;
+
+    final samplesCount = end - start + 1;
+
+    final samplesPerBucket = (samplesCount / bucketCount).floor();
+    if (samplesPerBucket == 0) {
+      return [];
+    }
+    final actualCount = samplesPerBucket * bucketCount;
+    List<int> histogram = new List<int>.filled(bucketCount, 0);
+
+    for (int i = start; i < start + actualCount; ++i) {
+      // ignore thte imaginary part
+      if ((i - start) % 2 == 1) {
+        continue;
+      }
+
+      int bucketIndex = ((i - start) / samplesPerBucket).floor();
+      histogram[bucketIndex] += samples[i];
+    }
+
+    for (var i = 0; i < histogram.length; ++i) {
+      histogram[i] = (histogram[i]*1.2 / samplesPerBucket).abs().floor();
+    }
+
+    return histogram;
   }
 
   @override
