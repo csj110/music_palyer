@@ -1,9 +1,10 @@
 import 'dart:math';
-
 import 'package:flutter/material.dart';
 import 'package:slide_show/songs.dart';
 import 'button_controls.dart';
 import 'theme.dart';
+import 'package:fluttery/gestures.dart';
+import 'package:fluttery_audio/fluttery_audio.dart';
 
 void main() => runApp(MyApp());
 
@@ -27,62 +28,177 @@ class MyHomePage extends StatefulWidget {
 }
 
 class _MyHomePageState extends State<MyHomePage> {
+
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-        appBar: AppBar(
-            backgroundColor: Colors.transparent,
-            elevation: 0.0,
-            leading: IconButton(
-              icon: Icon(
-                Icons.arrow_back_ios,
-              ),
-              color: Color(0xffddddddd),
-              onPressed: () => {},
-            ),
-            title: Text(''),
-            actions: <Widget>[
-              IconButton(
+    return Audio(
+      audioUrl: demoPlaylist.songs[0].audioUrl,
+      playbackState: PlaybackState.paused,
+      child: Scaffold(
+          appBar: AppBar(
+              backgroundColor: Colors.transparent,
+              elevation: 0.0,
+              leading: IconButton(
                 icon: Icon(
-                  Icons.menu,
+                  Icons.arrow_back_ios,
                 ),
                 color: Color(0xffddddddd),
                 onPressed: () => {},
               ),
-            ]),
-        body: Column(
-          children: <Widget>[
-            //seek bar
-            Expanded(
-                child: Center(
-                    child: Container(
-              width: 140.0,
-              height: 140.0,
-              child: RadialSeekBar(
-                progressPercent: 0.2,
-                thumbPosition: 0.2,
-                innerPadding: EdgeInsets.all(8.0),
-                progressColor: accentColor,
-                thumbColor:lightAccentColor,
-                trackColor:Color(0xffdddddd),
-                child: ClipOval(
-                  clipper: CircleClipper(),
-                  child: Image.network(
-                    demoPlaylist.songs[0].albumArtUrl,
-                    fit: BoxFit.cover,
+              title: Text(''),
+              actions: <Widget>[
+                IconButton(
+                  icon: Icon(
+                    Icons.menu,
                   ),
+                  color: Color(0xffddddddd),
+                  onPressed: () => {},
                 ),
+              ]),
+          body: Column(
+            children: <Widget>[
+              //seek bar
+              Expanded(
+                child: AudioRadialSeekBar(),
               ),
-            ))),
-            // visualizer
-            Container(
-              width: double.infinity,
-              height: 125.0,
+              // visualizer
+              Container(
+                width: double.infinity,
+                height: 125.0,
+              ),
+              // title  artist name and controls
+              new ButtonControls()
+            ],
+          )),
+    );
+  }
+}
+
+class AudioRadialSeekBar extends StatefulWidget {
+  @override
+  _AudioRadialSeekBarState createState() => _AudioRadialSeekBarState();
+}
+
+class _AudioRadialSeekBarState extends State<AudioRadialSeekBar> {
+  double _seekPercent;
+  @override
+  Widget build(BuildContext context) {
+    return AudioComponent(
+                  updateMe: [
+                    WatchableAudioProperties.audioPlayhead,
+                    WatchableAudioProperties.audioSeeking,
+                  ],
+                  playerBuilder:
+                      (BuildContext context, AudioPlayer player, Widget child) {
+                    double playbackProgress = 0.0;
+                    if (player.audioLength != null && player.position != null) {
+                      playbackProgress = player.position.inMilliseconds /
+                          player.audioLength.inMilliseconds;
+                    }
+                    _seekPercent=player.isSeeking ? _seekPercent: null;
+                    return RadialBar(
+                        progress: playbackProgress,
+                        seekPercent: _seekPercent,
+                        onSeekRequest: (double seekPercent) {
+                          setState(() => _seekPercent = seekPercent);
+                          final seekMillis =
+                              (player.audioLength.inMilliseconds * seekPercent)
+                                  .round();
+                          player.seek(Duration(milliseconds: seekMillis));
+                        });
+                  },
+                );
+  }
+}
+
+class RadialBar extends StatefulWidget {
+  final double progress;
+  final seekPercent;
+  final Function(double) onSeekRequest;
+  RadialBar({this.seekPercent = 0.2, this.progress, this.onSeekRequest});
+  @override
+  _RadialBarState createState() => _RadialBarState();
+}
+
+class _RadialBarState extends State<RadialBar> {
+  PolarCoord _strartDragCoord;
+  double _startDragPercent;
+  double _currentDragPercent;
+  double _progress = 0.0;
+
+  @override
+  void initState() {
+    super.initState();
+    _progress = widget.progress;
+  }
+
+  @override
+  void didUpdateWidget(RadialBar oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    _progress = widget.progress;
+  }
+
+  void _onDragStart(PolarCoord coord) {
+    _strartDragCoord = coord;
+    _startDragPercent = _progress;
+  }
+
+  void _onDragUpdate(PolarCoord coord) {
+    final dragAngel = coord.angle - _strartDragCoord.angle;
+    final dragPercent = dragAngel / (2 * pi);
+    setState(
+        () => _currentDragPercent = (_startDragPercent + dragPercent) % 1.0);
+  }
+
+  void _onDragEnd() {
+    if (widget.onSeekRequest != null) {
+      widget.onSeekRequest(_currentDragPercent);
+    }
+    setState(() {
+      _currentDragPercent = null;
+      _strartDragCoord = null;
+      _startDragPercent = 0;
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    double thumbPosition = _progress;
+    if (_currentDragPercent != null) {
+      thumbPosition = _currentDragPercent;
+    } else if (widget.seekPercent != null) {
+      thumbPosition = widget.seekPercent;
+    }
+    return RadialDragGestureDetector(
+      onRadialDragStart: _onDragStart,
+      onRadialDragUpdate: _onDragUpdate,
+      onRadialDragEnd: _onDragEnd,
+      child: Container(
+        width: double.infinity,
+        height: double.infinity,
+        color: Colors.transparent,
+        child: Center(
+            child: Container(
+          width: 140.0,
+          height: 140.0,
+          child: RadialSeekBar(
+            progressPercent: _progress,
+            thumbPosition: thumbPosition,
+            innerPadding: EdgeInsets.all(8.0),
+            progressColor: accentColor,
+            thumbColor: lightAccentColor,
+            trackColor: Color(0xffdddddd),
+            child: ClipOval(
+              clipper: CircleClipper(),
+              child: Image.network(
+                demoPlaylist.songs[0].albumArtUrl,
+                fit: BoxFit.cover,
+              ),
             ),
-            // title  artist name and controls
-            new ButtonControls()
-          ],
-        ));
+          ),
+        )),
+      ),
+    );
   }
 }
 
@@ -99,7 +215,6 @@ class RadialSeekBar extends StatefulWidget {
   final EdgeInsets innerPadding;
   final Widget child;
 
-
   RadialSeekBar({
     this.progressWidth = 5.0,
     this.progressColor = Colors.black,
@@ -109,8 +224,8 @@ class RadialSeekBar extends StatefulWidget {
     this.thumbPosition = 0.0,
     this.trackWidth = 3.0,
     this.trackColor = Colors.grey,
-    this.innerPadding=EdgeInsets.all(0.0),
-    this.outerPadding=EdgeInsets.all(0.0),
+    this.innerPadding = const EdgeInsets.all(0.0),
+    this.outerPadding = const EdgeInsets.all(0.0),
     this.child,
   });
 
@@ -141,7 +256,7 @@ class _RadialSeekBarState extends State<RadialSeekBar> {
             thumbWidth: widget.thumbWidth,
             thumbPosition: widget.thumbPosition),
         child: Padding(
-          padding: _insetForPainters() +widget.innerPadding,
+          padding: _insetForPainters() + widget.innerPadding,
           child: widget.child,
         ),
       ),

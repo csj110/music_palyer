@@ -3,7 +3,7 @@ import 'package:meta/meta.dart';
 final demoPlaylist = new DemoPlaylist(
   songs: [
     new DemoSong(
-      audioUrl: 'https://api.soundcloud.com/tracks/434370309/stream?secret_token=s-tj3IS&client_id=LBCcHmRB8XSStWL6wKH2HPACspQlXg2P',
+      audioUrl: 'https://webfs.yun.kugou.com/201906161130/3719f65982bf3c76514e93349d1ab348/G155/M0B/1B/03/O4cBAFz4BsKAfaJ5ADkw4GXG_M0783.mp3',
       albumArtUrl: 'https://timgsa.baidu.com/timg?image&quality=80&size=b9999_10000&sec=1560595449880&di=58926220d0d67ba22ea35f01bdeda4a8&imgtype=0&src=http%3A%2F%2Fimg1.kuwo.cn%2Fstar%2Falbumcover%2F240%2F2%2F92%2F4034638411.jpg',
       songTitle: 'Perfect Saxophone',
       artist: 'Simon More',
