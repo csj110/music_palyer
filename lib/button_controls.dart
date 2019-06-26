@@ -89,7 +89,7 @@ class PlayPauseButton extends StatelessWidget {
       ],
       playerBuilder: (BuildContext context, AudioPlayer player, Widget child) {
         IconData icon = Icons.music_note;
-        Function onPressed;
+        Function onPressed=player.play;
         Color buttonColor = lightAccentColor;
         if (player.state == AudioPlayerState.playing) {
           icon = Icons.pause;
