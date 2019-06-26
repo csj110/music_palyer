@@ -1,6 +1,6 @@
 import 'dart:math';
 import 'package:flutter/material.dart';
-import 'package:slide_show/songs.dart';
+import 'songs.dart';
 import 'button_controls.dart';
 import 'theme.dart';
 import 'package:fluttery/gestures.dart';
